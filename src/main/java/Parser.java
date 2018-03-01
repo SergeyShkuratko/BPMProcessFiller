@@ -34,7 +34,7 @@ public class Parser {
             "log.info(\"User task %s is finished: \" + %s);\n"; //aItem_XX //aItem_XX
 
     private static final String TYPICAL_INIT_SCRIPT = "java.util.logging.Logger log = java.util.logging.Logger.getLogger(kcontext.getProcessInstance().getProcessName());\n" +
-            "log.info(String.format(\"ReorganizationProcess start, process %s\", kcontext.getProcessInstance().getId()));\n" +
+            "log.info(\"ReorganizationProcess start, process \" + kcontext.getProcessInstance().getId());\n" +
             "\n" +
             "Map<String, String> _businessTaskDataMap = new HashMap<String, String>();\n" +
             "_businessTaskDataMap.put(\"clientFullName\", clientFullName);\n" +
@@ -142,13 +142,12 @@ public class Parser {
 
                 initStringPartOne.append(elementName).append(" = _actionPlanItemsMapInit.containsKey(").append(stepName).append(") ? (ActionPlanItem) _actionPlanItemsMapInit.get(").append(stepName).append(") : null;\n");
                 initStringPartTwo.append("kcontext.setVariable(\"").append(elementName).append("\"").append(", ").append(elementName).append(");\n");
-                //kcontext.setVariable(\"aItem_25\", aItem_25);\n
+
                 Element rootElement = document.getDocumentElement();
                 Element newElement = document.createElement("bpmn2:itemDefinition");
                 newElement.setAttribute("id", "_" + elementName + "Item");
                 newElement.setAttribute("structureRef", "org.rshb.collection.ActionPlanItem");
                 rootElement.insertBefore(newElement, rootElement.getFirstChild());
-//    <bpmn2:property id="aItem_28" itemSubjectRef="_aItem_28Item"/>
                 Element process = (Element) rootElement.getElementsByTagName("bpmn2:process").item(0);
                 Element processProperty = document.createElement("bpmn2:property");
                 processProperty.setAttribute("id", elementName);
@@ -162,6 +161,23 @@ public class Parser {
                 userTask.setExitScript(exitScript);
 
 //                System.out.println(exitScript);
+            }
+
+            NodeList scriptTasks = document.getElementsByTagName("bpmn2:scriptTask");
+            for (int i = 0; i < scriptTasks.getLength(); i++) {
+                Element item = (Element) scriptTasks.item(i);
+                Element extensionElements = (Element) item.getElementsByTagName("bpmn2:extensionElements").item(0);
+                Element metaData = (Element) extensionElements.getElementsByTagName("drools:metaData").item(0);
+                Element metaValue = (Element) metaData.getElementsByTagName("drools:metaValue").item(0);
+                if (metaValue.getTextContent().toLowerCase().contains("init")) {
+                    String initScript = String.format(TYPICAL_INIT_SCRIPT, initStringPartOne.toString(), initStringPartTwo.toString());
+                    CDATASection initCDATA = document.createCDATASection(initScript);
+                    Node initScriptNode = item.getElementsByTagName("bpmn2:script").item(0);
+                    if (initScriptNode.getFirstChild() != null) {
+                        initScriptNode.removeChild(initScriptNode.getFirstChild());
+                    }
+                    initScriptNode.appendChild(initCDATA);
+                }
             }
 
             for (int i = 0; i < tasks.getLength(); i++) {
@@ -189,7 +205,7 @@ public class Parser {
                         }
                         exitScriptNode.appendChild(exitCDATA);
 
-                        boolean inputExist = false;//actionPlanItemInput
+                        boolean inputExist = false;
                         NodeList inputs = userTask.getElementsByTagName("bpmn2:dataInputAssociation");
                         for (int y = 0; y < inputs.getLength(); y++) {
                             Element item = (Element) inputs.item(y);
@@ -227,10 +243,6 @@ public class Parser {
                 }
             }
 
-
-//            Writer writer = new FileWriter("MyOutput.xml");
-//            XMLSerializer xml = new XMLSerializer(writer, null);
-//            xml.serialize(document);
             DOMSource source = new DOMSource(document);
             FileWriter writer = new FileWriter(new File("MyOutput.xml"));
             StreamResult result = new StreamResult(writer);
@@ -240,38 +252,6 @@ public class Parser {
             transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
             transformer.setOutputProperty(OutputKeys.INDENT, "yes");
             transformer.transform(source, result);
-
-//                System.out.println(userTask);
-//            }
-
-//            for (int i = 0; i < nodes.getLength(); i++) {
-//                Node node = nodes.item(i);
-//                // Если нода не текст, то это книга - заходим внутрь
-//                System.out.println(node.getNodeName());
-//                if ("bpmn2:userTask".equals(node.getNodeName())) {
-//                    node.getAttributes().getNamedItem("id");
-//
-//                    NodeList childNodes = node.getChildNodes();
-//                    for (int y = 0; y < childNodes.getLength(); y++) {
-//                        Node childNode = childNodes.item(y);
-//                        System.out.println(childNode.getNodeName());
-//                    }
-//                }
-
-//                if (node.getAttributes() != null) {
-//                    System.out.println(node.getAttributes().getLength());
-//                }
-//                System.out.println(node);
-//                    NodeList bookProps = node.getChildNodes();
-//                    for(int j = 0; j < bookProps.getLength(); j++) {
-//                        Node bookProp = bookProps.item(j);
-//                        // Если нода не текст, то это один из параметров книги - печатаем
-//                        if (bookProp.getNodeType() != Node.TEXT_NODE) {
-//                            System.out.println(bookProp.getNodeName() + ":" + bookProp.getChildNodes().item(0).getTextContent());
-//                        }
-//                    }
-//                    System.out.println("===========>>>>");
-
 
         } catch (ParserConfigurationException | SAXException | IOException e) {
             e.printStackTrace();
